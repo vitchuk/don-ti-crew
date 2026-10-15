@@ -125,7 +125,27 @@ describe('main — exit-коды (план: 0 ok / 1 usage / 2 collect / 3 llm)'
     })
     expect(code).toBe(3)
     expect(llm.calls()).toBe(0)
+    expect(session.calls.filter(call => call.name === 'search_project_docs')).toHaveLength(0)
     expect(session.closed).toBe(1)
+  })
+
+  it('fail-fast: без ключа RAG-контекст не запрашивается (счётчик search_project_docs = 0)', async () => {
+    const io = recordingIo()
+    const session = stubSession((name) => {
+      if (name === 'git_diff') {
+        return DIFF_OK
+      }
+      if (name === 'changed_files') {
+        return FILES_OK
+      }
+      return { results: [], total: 0 }
+    })
+    const code = await main(['--base', 'a', '--head', 'b'], {}, {
+      openSession: async () => session,
+      io,
+    })
+    expect(code).toBe(3)
+    expect(session.calls.filter(call => call.name === 'search_project_docs')).toHaveLength(0)
   })
 
   it('MCP-сервер не поднялся → exit 2', async () => {
@@ -159,6 +179,8 @@ describe('main — успешный прогон (AC-10)', () => {
     expect(report).toContain('## 🔍 AI Code Review')
     expect(report).toContain('**base** `a1` → **head** `b2`')
     expect(report).toContain('**Находок нет**')
+    expect(report).toContain('## Опора на знания (цитаты)')
+    expect(report).toContain('- `specs/005-ci-ai-review/spec.md` — FR-6')
     expect(report).not.toContain('<!-- ai-review-comment -->')
     expect(io.out[0]).toContain('находок всего 0')
     expect(io.out[0]).toContain(out)

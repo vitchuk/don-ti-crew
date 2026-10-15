@@ -63,7 +63,7 @@ function getCurrentBranch(): GetCurrentBranchResult;
 function gitStatus(opts?: { maxChanges?: number /* default 200 */ }): GitStatusResult;
 function getLastCommit(): GetContextResult['lastCommit']; // git log -1
 function gitDiff(args: { target?: string; base?: string; head?: string; maxLines?: number /* default 400 */ }): GitDiffResult;
-function changedFiles(args: { base: string; head: string }): { files: { path: string; state: string }[]; truncated: boolean };
+function changedFiles(args: { base: string; head: string }): { files: { file: string; state: string }[]; truncated: boolean };
 function listFiles(args: { path?: string; limit?: number /* default 500 */ }): ListFilesResult;
 
 // Знания: внедряемый интерфейс (реализация @don-ti/knowledge, спека 003)

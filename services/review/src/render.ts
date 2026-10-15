@@ -11,15 +11,26 @@ export interface Finding {
   note?: string
 }
 
+export interface ReportCitation {
+  file: string
+  heading?: string
+}
+
 export interface ReportInput {
   base: string
   head: string
   model: string
   findings: Finding[]
   diffTruncated?: boolean
+  filesTruncated?: boolean
+  citations?: ReportCitation[]
 }
 
+export const MAX_REPORT_CITATIONS = 10
+
 const NO_FINDINGS_PHRASE = 'Находок нет'
+const CITATIONS_HEADING = '## Опора на знания (цитаты)'
+const FILES_TRUNCATED_NOTE = '_Список изменённых файлов усечён (cap 200)._'
 const HEADING_PATTERN = /^###\s+(\S+)\s+—\s+(.+)$/
 const MESSAGE_MARKER = '**Описание:**'
 const RECOMMENDATION_MARKER = '**Рекомендация:**'
@@ -71,22 +82,55 @@ export function renderReport(input: ReportInput): string {
     lines.push('')
     lines.push('_Диф усечён по лимиту строк._')
   }
+  if (input.filesTruncated === true) {
+    lines.push('')
+    lines.push(FILES_TRUNCATED_NOTE)
+  }
   if (findings.length === 0) {
     lines.push('')
     lines.push(`**${NO_FINDINGS_PHRASE}** — замечаний по направлениям проверки нет.`)
-    return `${lines.join('\n')}\n`
   }
-  for (const finding of findings) {
-    lines.push('')
-    const location = finding.line === undefined ? finding.file : `${finding.file}:${finding.line}`
-    lines.push(`### ${finding.severity} — \`${location}\``)
-    if (finding.note !== undefined) {
-      lines.push(`_(${finding.note})_`)
+  else {
+    for (const finding of findings) {
+      lines.push('')
+      const location = finding.line === undefined ? finding.file : `${finding.file}:${finding.line}`
+      lines.push(`### ${finding.severity} — \`${location}\``)
+      if (finding.note !== undefined) {
+        lines.push(`_(${finding.note})_`)
+      }
+      lines.push(`**Описание:** ${finding.message}`)
+      lines.push(`**Рекомендация:** ${finding.recommendation}`)
     }
-    lines.push(`**Описание:** ${finding.message}`)
-    lines.push(`**Рекомендация:** ${finding.recommendation}`)
+  }
+  const citations = citationListLines(input.citations)
+  if (citations.length > 0) {
+    lines.push('')
+    lines.push(CITATIONS_HEADING)
+    lines.push(...citations)
   }
   return `${lines.join('\n')}\n`
+}
+
+export function citationListLines(citations: readonly ReportCitation[] | undefined): string[] {
+  if (citations === undefined || citations.length === 0) {
+    return []
+  }
+  const lines: string[] = []
+  const seen = new Set<string>()
+  for (const citation of citations) {
+    const key = `${citation.file}\u0000${citation.heading ?? ''}`
+    if (seen.has(key)) {
+      continue
+    }
+    seen.add(key)
+    lines.push(citation.heading === undefined
+      ? `- \`${citation.file}\``
+      : `- \`${citation.file}\` — ${citation.heading}`)
+    if (lines.length >= MAX_REPORT_CITATIONS) {
+      break
+    }
+  }
+  return lines
 }
 
 function parseBlocks(text: string): Finding[] {

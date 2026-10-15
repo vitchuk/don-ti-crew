@@ -9,8 +9,8 @@
 | Workflow | Файл | Триггеры | Runner | Таймаут | Что делает / выход |
 |---|---|---|---|---|---|
 | CI | `.github/workflows/ci.yml` | `pull_request`, `push main` | `ubuntu-latest` (облако) | 15 мин | install → `pnpm lint` → `pnpm test` → `pnpm build`; локальные модели не нужны |
-| Rag Index | `.github/workflows/rag-index.yml` | `push main`, `workflow_dispatch` | `self-hosted` (Windows) | 10 мин | guard `KNOWLEDGE_DB` → install → `pnpm rag:index` (Инкрементальная Индексация в стабильный путь вне workspace) |
-| AI Review | `.github/workflows/ai-review.yml` | `pull_request [opened, synchronize, reopened]` | `self-hosted` (Windows) | 15 мин | guard `KNOWLEDGE_DB` → install → `pnpm rag:index` → `pnpm review:run` + публикация одного комментария с якорем `<!-- ai-review-comment -->` и label `ai-review` (non-blocking) |
+| Rag Index | `.github/workflows/rag-index.yml` | `push main`, `workflow_dispatch` | `self-hosted` (Windows) | 10 мин | guard `KNOWLEDGE_DB` → install → build (адресный: `knowledge`, `mcp-server`, `review`) → `pnpm rag:index` (Инкрементальная Индексация в стабильный путь вне workspace) |
+| AI Review | `.github/workflows/ai-review.yml` | `pull_request [opened, synchronize, reopened]` | `self-hosted` (Windows) | 15 мин | guard `KNOWLEDGE_DB` → install → build (адресный) → `pnpm rag:index` → `pnpm review:run` + публикация одного комментария с якорем `<!-- ai-review-comment -->` и label `ai-review` (non-blocking) |
 
 Заметки:
 
@@ -19,6 +19,14 @@
 - Шаг `review:run` идёт с `continue-on-error: true`, публикация — с
   `if: always()`: при сбое ревью PR получает короткий комментарий о сбое, job
   остаётся зелёным.
+- Публикация комментария идёт upsert'ом по якорю: опрашиваются все страницы
+  комментариев PR (per_page 100), приоритет у последнего якорного комментария
+  (сортировка по id по убыванию) — дубли не создаются.
+- Build шагов self-hosted workflow'ов адресный (`pnpm --filter` только по
+  нужным сервисам): быстрее полного `pnpm build` и не трогает клиент `vite`.
+- Эмбеддинги: если Ollama не на `localhost:11434` — задайте переменную
+  окружения раннера `OLLAMA_BASE_URL` (CLI review пробрасывает её в
+  mcp-server вместе с `KNOWLEDGE_DB`).
 - Известное поведение: шаг `pnpm rag:index` на PR временно «подмешивает»
   документацию PR-ветки в общий индекс машины; следующий push в `main`
   выправляет инкрементом.

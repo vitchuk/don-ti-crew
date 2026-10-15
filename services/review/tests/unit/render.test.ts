@@ -3,7 +3,9 @@ import {
   parseFindings,
   renderReport,
   summarizeCounts,
+  citationListLines,
   SEVERITY_ORDER,
+  type ReportCitation,
 } from '../../src/render'
 
 const MD_FINDINGS = `### Medium — \`services/cli.ts\`
@@ -80,5 +82,51 @@ describe('renderReport', () => {
   it('усечённый диф отмечается в отчёте', () => {
     const report = renderReport({ base: 'a', head: 'b', model: 'm', findings: [], diffTruncated: true })
     expect(report).toContain('усечён')
+  })
+
+  it('усечённый список файлов отмечается в сводке (cap 200)', () => {
+    const report = renderReport({ base: 'a', head: 'b', model: 'm', findings: [], filesTruncated: true })
+    expect(report).toContain('Список изменённых файлов усечён (cap 200)')
+    const plain = renderReport({ base: 'a', head: 'b', model: 'm', findings: [] })
+    expect(plain).not.toContain('усечён (cap 200)')
+  })
+})
+
+describe('renderReport — цитаты из Индекса знаний (М-5)', () => {
+  const CITES: ReportCitation[] = [
+    { file: 'docs/adr/0005-rag.md', heading: 'Решение', excerpt: 'секретный excerpt текст', score: 0.9 },
+    { file: 'specs/005-ci-ai-review/spec.md', heading: 'FR-6', excerpt: 'ещё excerpt', score: 0.8 },
+    { file: 'GLOSSARY.md', excerpt: 'без заголовка', score: 0.7 },
+    { file: 'docs/adr/0005-rag.md', heading: 'Решение', excerpt: 'дубль', score: 0.99 },
+  ]
+
+  it('секция «Опора на знания (цитаты)»: файл — заголовок, без excerpt, дубли схлопнуты', () => {
+    const report = renderReport({ base: 'a', head: 'b', model: 'm', findings: parseFindings(MD_FINDINGS), citations: CITES })
+    expect(report).toContain('## Опора на знания (цитаты)')
+    expect(report).toContain('- `docs/adr/0005-rag.md` — Решение')
+    expect(report).toContain('- `specs/005-ci-ai-review/spec.md` — FR-6')
+    expect(report).toContain('- `GLOSSARY.md`')
+    expect(report).not.toContain('секретный excerpt текст')
+    expect(report).not.toContain('ещё excerpt')
+    expect(report.match(/docs\/adr\/0005-rag\.md/g)).toHaveLength(1)
+  })
+
+  it('более 10 уникальных → ровно 10 строк в секции', () => {
+    const many: ReportCitation[] = []
+    for (let index = 0; index < 13; index += 1) {
+      many.push({ file: `docs/x/doc-${index}.md`, heading: `H${index}` })
+    }
+    const lines = citationListLines(many)
+    expect(lines).toHaveLength(10)
+    expect(lines[0]).toBe('- `docs/x/doc-0.md` — H0')
+    expect(lines[9]).toBe('- `docs/x/doc-9.md` — H9')
+  })
+
+  it('без цитат секция не добавляется', () => {
+    const empty: ReportCitation[] = []
+    const without = renderReport({ base: 'a', head: 'b', model: 'm', findings: [] })
+    const withEmpty = renderReport({ base: 'a', head: 'b', model: 'm', findings: [], citations: empty })
+    expect(without).not.toContain('Опора на знания')
+    expect(withEmpty).not.toContain('Опора на знания')
   })
 })

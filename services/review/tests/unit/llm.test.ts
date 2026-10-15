@@ -52,6 +52,31 @@ describe('askDeepSeek (mock fetch)', () => {
     expect(calls).toBe(2)
   })
 
+  it('402 (оплата) → retryable: retry, второй ответ успешен', async () => {
+    let calls = 0
+    const fetchImpl: FetchLike = () => {
+      calls += 1
+      return Promise.resolve(calls === 1 ? jsonResponse(402, {}) : okCompletion('answer'))
+    }
+    await expect(askDeepSeek(MESSAGES, CONFIG, fetchImpl, OPTIONS)).resolves.toBe('answer')
+    expect(calls).toBe(2)
+  })
+
+  it('429 (лимиты) дважды → LlmError с текстом о лимитах/оплате, ровно 2 попытки', async () => {
+    let calls = 0
+    const fetchImpl: FetchLike = () => {
+      calls += 1
+      return Promise.resolve(jsonResponse(429, {}))
+    }
+    await expect(askDeepSeek(MESSAGES, CONFIG, fetchImpl, OPTIONS))
+      .rejects.toMatchObject({
+        name: 'LlmError',
+        retryable: true,
+        message: 'DeepSeek вернул ошибку лимитов/оплаты — проверьте баланс и лимиты.',
+      })
+    expect(calls).toBe(2)
+  })
+
   it('5xx дважды → LlmError ровно после двух попыток', async () => {
     let calls = 0
     const fetchImpl: FetchLike = () => {

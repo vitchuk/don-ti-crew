@@ -28,7 +28,7 @@ jobs:
           }
       - name: Install
         run: pnpm install --frozen-lockfile
-      - name: Build (dist сервисов)
-        run: pnpm build
+      - name: Build (адресный: knowledge, mcp-server, review)
+        run: pnpm --filter @don-ti/knowledge --filter @don-ti/mcp-server --filter @don-ti/review run build
       - name: RAG-индексация
         run: pnpm rag:index

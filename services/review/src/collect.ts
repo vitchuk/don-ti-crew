@@ -20,9 +20,10 @@ export interface DiffPayload {
 export interface ReviewData {
   diff: DiffPayload
   files: ChangedFile[]
+  filesTruncated: boolean
 }
 
-export const DIFF_MAX_LINES = 500
+export const DIFF_MAX_LINES = 4000
 export const MAX_DIFF_CHARS = 150_000
 export const DIFF_TRUNCATION_MARK = '\n\n… [diff усечён: лимит ~150 КБ]'
 export const CONNECT_TIMEOUT_MS = 10_000
@@ -30,6 +31,8 @@ export const TOOL_TIMEOUT_MS = 30_000
 export const SEARCH_TIMEOUT_MS = 40_000
 
 const MCP_REF_ERROR = 'недопустимая git-ссылка'
+const DIFF_FILE_HEADER_PREFIX = 'diff --git '
+const GIT_FILE_HEADER = /^diff --git a\/(.*) b\/(.*)$/
 const STATES: readonly ChangeState[] = ['added', 'modified', 'deleted', 'renamed']
 const LOCK_FILES = new Set([
   'pnpm-lock.yaml',
@@ -84,6 +87,10 @@ export async function openMcpSession(options: OpenSessionOptions = {}): Promise<
   const knowledgeDb = process.env['KNOWLEDGE_DB']
   if (knowledgeDb !== undefined) {
     env['KNOWLEDGE_DB'] = knowledgeDb
+  }
+  const ollamaBaseUrl = process.env['OLLAMA_BASE_URL']
+  if (ollamaBaseUrl !== undefined) {
+    env['OLLAMA_BASE_URL'] = ollamaBaseUrl
   }
   const transport = new StdioClientTransport({
     command: process.execPath,
@@ -141,9 +148,12 @@ export async function callPayload(
 export async function collectReviewData(session: McpCall, base: string, head: string): Promise<ReviewData> {
   const diffRaw = await callPayload(session, 'git_diff', { base, head, maxLines: DIFF_MAX_LINES }, TOOL_TIMEOUT_MS)
   const filesRaw = await callPayload(session, 'changed_files', { base, head }, TOOL_TIMEOUT_MS)
+  const diffPayload = validateDiffPayload(diffRaw)
+  const filesPayload = validateChangedFilesPayload(filesRaw)
   return {
-    diff: boundDiff(validateDiffPayload(diffRaw)),
-    files: filterReviewableFiles(validateChangedFilesPayload(filesRaw)),
+    diff: boundDiff(stripExcludedDiffHunks(diffPayload)),
+    files: filterReviewableFiles(filesPayload.files),
+    filesTruncated: filesPayload.truncated,
   }
 }
 
@@ -158,12 +168,14 @@ export function validateDiffPayload(raw: unknown): DiffPayload {
   return { diff: value['diff'], totalLines: value['totalLines'], truncated: value['truncated'] }
 }
 
-export function validateChangedFilesPayload(raw: unknown): ChangedFile[] {
+export function validateChangedFilesPayload(raw: unknown): ChangedFilesPayload {
   if (typeof raw !== 'object' || raw === null || !Array.isArray((raw as Record<string, unknown>)['files'])) {
     throw new CollectError('changed_files вернул некорректный ответ')
   }
+  const value = raw as Record<string, unknown>
+  const rawFiles = Array.isArray(value['files']) ? value['files'] : []
   const files: ChangedFile[] = []
-  for (const entry of (raw as { files: unknown[] }).files) {
+  for (const entry of rawFiles) {
     if (typeof entry !== 'object' || entry === null) {
       continue
     }
@@ -178,7 +190,12 @@ export function validateChangedFilesPayload(raw: unknown): ChangedFile[] {
     }
     files.push({ file, state: state as ChangeState })
   }
-  return files
+  return { files, truncated: value['truncated'] === true }
+}
+
+export interface ChangedFilesPayload {
+  files: ChangedFile[]
+  truncated: boolean
 }
 
 export function filterReviewableFiles(files: ChangedFile[]): ChangedFile[] {
@@ -198,6 +215,58 @@ export function isExcludedFile(path: string): boolean {
   return BINARY_EXTENSIONS.has(base.slice(dot))
 }
 
+export function stripExcludedDiffHunks(payload: DiffPayload): DiffPayload {
+  const lines = payload.diff.split('\n')
+  const firstHeader = lines.findIndex(line => line.startsWith(DIFF_FILE_HEADER_PREFIX))
+  if (firstHeader < 0) {
+    return {
+      diff: payload.diff,
+      totalLines: countDiffLines(payload.diff),
+      truncated: payload.truncated,
+    }
+  }
+  const blocks = splitFileBlocks(lines.slice(firstHeader))
+  const kept = blocks.filter(block => !isExcludedBlock(block))
+  const text = [...lines.slice(0, firstHeader), ...kept.flat()].join('\n')
+  return {
+    diff: text,
+    totalLines: countDiffLines(text),
+    truncated: payload.truncated,
+  }
+}
+
+function splitFileBlocks(lines: string[]): string[][] {
+  const blocks: string[][] = []
+  let current: string[] | null = null
+  for (const line of lines) {
+    if (line.startsWith(DIFF_FILE_HEADER_PREFIX)) {
+      current = [line]
+      blocks.push(current)
+    }
+    else if (current !== null) {
+      current.push(line)
+    }
+  }
+  return blocks
+}
+
+function isExcludedBlock(block: readonly string[]): boolean {
+  const match = GIT_FILE_HEADER.exec(block[0] ?? '')
+  if (match === null) {
+    return false
+  }
+  const paths = [match[1] ?? '', match[2] ?? ''].filter(path => path.length > 0)
+  return paths.some(path => isExcludedFile(path))
+}
+
+function countDiffLines(text: string): number {
+  if (text.length === 0) {
+    return 0
+  }
+  const lines = text.split('\n')
+  return lines[lines.length - 1] === '' ? lines.length - 1 : lines.length
+}
+
 function boundDiff(diff: DiffPayload): DiffPayload {
   if (diff.diff.length <= MAX_DIFF_CHARS) {
     return diff
@@ -205,6 +274,7 @@ function boundDiff(diff: DiffPayload): DiffPayload {
   return {
     ...diff,
     diff: `${diff.diff.slice(0, MAX_DIFF_CHARS)}${DIFF_TRUNCATION_MARK}`,
+    truncated: true,
   }
 }
 

@@ -94,8 +94,8 @@ export async function main(argv: readonly string[], env: NodeJS.ProcessEnv, deps
     if (data.diff.diff.trim().length === 0) {
       throw new CollectError('Diff пуст — между base и head нет изменений для ревью.')
     }
-    const fragments = await ragContext(session, data.files)
     const config = resolveLlmConfig(env)
+    const fragments = await ragContext(session, data.files)
     const prompt = buildPrompt({
       base,
       head,
@@ -116,6 +116,8 @@ export async function main(argv: readonly string[], env: NodeJS.ProcessEnv, deps
       model: config.model,
       findings,
       diffTruncated: data.diff.truncated,
+      filesTruncated: data.filesTruncated,
+      citations: fragments,
     })
     if (out === undefined) {
       io.stdout(report)

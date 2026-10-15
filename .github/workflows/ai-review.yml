@@ -33,8 +33,8 @@ jobs:
           }
       - name: Install
         run: pnpm install --frozen-lockfile
-      - name: Build (dist сервисов)
-        run: pnpm build
+      - name: Build (адресный: knowledge, mcp-server, review)
+        run: pnpm --filter @don-ti/knowledge --filter @don-ti/mcp-server --filter @don-ti/review run build
       - name: Актуализировать индекс знаний по PR
         run: pnpm rag:index
       - name: Review CLI
@@ -68,10 +68,24 @@ jobs:
             const owner = context.repo.owner
             const repo = context.repo.repo
             const issue = context.issue.number
-            const comments = await github.rest.issues.listComments({ owner, repo, issue_number: issue, per_page: 100 })
-            const existing = comments.data.find(c => typeof c.body === 'string' && c.body.includes(anchor))
-            if (existing) {
-              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body })
+            // Якорный комментарий может быть не в первой сотне: опрашиваем все страницы (per_page 100).
+            let latest = null
+            let page = 1
+            for (;;) {
+              const batch = await github.rest.issues.listComments({ owner, repo, issue_number: issue, per_page: 100, page })
+              const anchored = batch.data
+                .filter(c => typeof c.body === 'string' && c.body.includes(anchor))
+                .sort((a, b) => b.id - a.id)
+              if (anchored.length > 0 && (latest === null || anchored[0].id > latest.id)) {
+                latest = anchored[0]
+              }
+              if (batch.data.length < 100) {
+                break
+              }
+              page += 1
+            }
+            if (latest) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: latest.id, body })
             } else {
               await github.rest.issues.createComment({ owner, repo, issue_number: issue, body })
             }

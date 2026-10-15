@@ -275,6 +275,18 @@ _Нон-блокирующее ревью: решает человек (ADR-0007
 Ревью не завершено из-за сбоя (код выхода `3`). Подробности в логах job `review`. Merge не блокируется.
 ```
 
+## Отклонения, согласованные при реализации (rev. 2026-10-15)
+
+- Self-hosted workflows включают шаг «адресный build» (`pnpm --filter @don-ti/knowledge --filter @don-ti/mcp-server --filter @don-ti/review run build`) после install — иначе `rag:index`/review-CLI без `dist/` (вне git) падают на чистом клоне; не включая client/vite (экономия бюджета NFR-2). Отражено в `docs/dev/ci.md`.
+- Diff в CLI: `git_diff maxLines = 4000` (cap MCP) + символьный кап 150 КБ; hunks по exclude-файлам (lock/бинарные) выкалываются из diff до передачи в LLM (спека «исключаются из diff» реализована в CLI, MCP-контракт diff не фильтрует).
+- Отчёт содержит секцию «Опора на знания (цитаты)» (≤10 записей `file — heading`, без excerpt) — детализация NFR-3.
+- Публикация комментария: пагинация listComments (все страницы), выбор последнего якорного по id — единственный upsert гарантируется и при >100 комментариях PR.
+- Корневой `review:run`: форма `pnpm -C services/review build && node dist/cli.js` — сохраняет exit-коды 0/1/2/3 (pnpm recursive-run коллапсирует их в 1).
+- LLM: 402/429 — retryable с сообщением о лимитах/оплате; fail-fast: конфиг LLM проверяется до RAG-запросов.
+- Env-проброс в spawned mcp-server: `KNOWLEDGE_DB` + `OLLAMA_BASE_URL` (если задан).
+- Пометка в отчёте при `changed_files.truncated` (cap 200).
+- `actionlint` в среде разработчика недоступен — парсинг js-yaml + ручная сверка; официальная проверка — первый прогон CI.
+
 ## Тест-план
 
 ### Статическая проверка YAML

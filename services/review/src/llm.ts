@@ -95,6 +95,9 @@ async function callOnce(messages: LlmMessage[], config: LlmConfig, fetchImpl: Fe
     throw new LlmError(`LLM недоступна: ${describe(error)}`, true)
   }
   if (!response.ok) {
+    if (response.status === 402 || response.status === 429) {
+      throw new LlmError('DeepSeek вернул ошибку лимитов/оплаты — проверьте баланс и лимиты.', true)
+    }
     if (response.status < 500) {
       throw new LlmError(`LLM отклонила запрос (HTTP ${response.status}) — проверьте ключ DEEPSEEK_API_KEY.`)
     }

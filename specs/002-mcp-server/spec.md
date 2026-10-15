@@ -23,7 +23,7 @@
   - `get_current_branch()` → `{ branch: string }`
   - `git_status()` → `{ clean: boolean, changes: [{ file, state }], truncated: boolean }` — не более 200 изменений
   - `git_diff(args { target?: string, base?: string, head?: string, maxLines: number = 400 })` → `{ diff: string, totalLines: number, truncated: boolean }`. Без `base`/`head` — diff рабочего дерева против `target` (по умолчанию HEAD); с `base` и `head` — diff между merge-base(`base`, `head`) и `head` (сценарий «ревью PR», спека 005). Одновременное задание `target` вместе с `base`/`head` — ошибка валидации.
-  - `changed_files(args { base: string, head: string })` → `{ files: [{ path, state }], truncated: boolean }` — файлы, изменённые между merge-base(`base`, `head`) и `head`, со статусами `added | modified | deleted | renamed`.
+  - `changed_files(args { base: string, head: string })` → `{ files: [{ file, state }], truncated: boolean }` — файлы, изменённые между merge-base(`base`, `head`) и `head`, со статусами `added | modified | deleted | renamed` (поле `file` — консистентно с `git_status` и `get_context`).
   - `list_files(args { path?: string, limit: number = 500 })` → `{ files: [{ path, bytes }], truncated: boolean }`
   - `get_context()` → `{ branch, clean, changedFiles: [{ file, state }], lastCommit: { sha, message, date }, truncated: boolean }` — комбинированный инструмент: один вызов вместо трёх (`get_current_branch` + `git_status` + последний коммит).
   - `search_project_docs(args { query: string, k: number = 3 (диапазон 1..5), type?: 'readme'|'docs'|'specs'|'adr'|'code'|'config' })` → `{ results: [{ file, heading?, excerpt (≤ 500 символов), score }], total }` — проксирует `query()` пакета knowledge.
