@@ -1,0 +1,14 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "don-ti-crew": {
+      "type": "local",
+      "command": ["node", "./services/mcp-server/dist/index.js"],
+      "cwd": ".",
+      "enabled": true,
+      "environment": {
+        "KNOWLEDGE_DB": ".data/knowledge.db"
+      }
+    }
+  }
+}

@@ -126,6 +126,19 @@ ORDER BY m.distance;
 -- score = 1 / (1 + distance); фильтр file_type — в JS; лишние строки отсекаются до k результатов
 ```
 
+## Отклонения, согласованные при реализации (rev. 2026-10-15)
+
+- sqlite-vec 0.1.9: metadata-колонки vec0 не принимают NULL → `heading_path` хранится как `''` (наружу `heading: undefined` отдаётся как было).
+- `IndexSummary.dimensionChanged?: boolean` — добавленное поле (для AC-9/CLI-сообщения); при `--force` старая размерность читается из `user_version` до DROP.
+- Probe-эмбеддинг `['knowledge dimension probe']` на прогоне без изменений — ловит смену размерности модели (отступ от «не гоняет Ollama вообще»; 1 текст, задокументировано).
+- devDeps `@types/better-sqlite3`, `@types/node` (необходимы для tsc под NodeNext strict).
+- В обходе индексируется только корневой `package.json` (FR-3 трактован «корневые конфиги»).
+- Транзакции per-file + delete-before-insert (AC-11 без потерянных чанков); эмбеддинги батчатся внутри файла (≤32 текстов на HTTP-вызов).
+- gitignore-парсер — только корневой `.gitignore` (FR-4 сужено: подкаталоговые `.gitignore`/`git ls-files` не используются; для данного репо эквивалентно, зафиксировано ревью).
+- Гранулярность выборки: пер-файловые HTTP-батчи — потенциальное констан时间去 для больших репо (NFR-1 имеет запас ~10 мин; backlog — аккумулирование батчей между транзакциями).
+- `total` в `SearchResponse` = `results.length`.
+- Подсчёт dimension-чистый: сравнение `vector.length` с `user_version` до MATCH (fallback regex остался).
+
 ## Тест-план
 
 1. **Unit (vitest, CI без Ollama):** `FakeEmbedder` (детерминированный вектор dim = 8 из sha256 текста) + БД `:memory:`:

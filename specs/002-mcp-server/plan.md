@@ -129,6 +129,17 @@ const searchArgs    = z.object({
 
 Собственного хранилища нет: все ответы формируются in-memory из вывода git и fs. Персистентное состояние единственное — БД **индекса знаний** (`.data/knowledge.db`), доступ к которой получает knowledge-пакет через env `KNOWLEDGE_DB` (схема данных — спека 003).
 
+## Отклонения, согласованные при реализации (rev. 2026-10-15)
+
+- Ref-валидация сильнее плана: ref аргументы дополнительно резолвятся (`rev-parse --verify --quiet --end-of-options` → в git уходят только SHA, фиксированные опции `--no-ext-diff --no-textconv --no-color`), вместо «после `--`» (для diff refs синтаксически некорректно).
+- `get_context.lastCommit` = `null` в unborn-репо (без коммитов); для потребителей 004/005 — учитывать null.
+- `changed_files` — лимит 200, как у `git_status` (поле `truncated` есть).
+- `git status --porcelain=v1 -z -b -uall` — per-file untracked (иначе каталоги схлопываются).
+- DI-параметры адаптеров `cwd`/`timeoutMs` (дефолты: `process.cwd()`, 30 с) — для тестов.
+- Аргументные схемы — `z.strictObject` (unknown поля → isError, FR-8).
+- `opencode.json` создан позже кода (H-1 ревью); AC-8 (smoke в OpenCode) — ручной.
+- spawn: stdout буферизуется целиком до обрезки — для гигантских diff возможен рост памяти (backlog).
+
 ## Тест-план
 
 1. **Unit (vitest), мок-репо** (`tests/fixtures/mockRepo.ts`: `git init -b main`, локальные `user.name/user.email` через `-c`-флаги, один коммит, сценарии мутаций):
