@@ -163,6 +163,16 @@ user: [Вопрос] question
       [Фрагменты знаний] 1..4 ×: file, heading, excerpt   // каждый ≤ 600 симв.
 ```
 
+## Отклонения, согласованные при реализации (rev. 2026-10-15)
+
+- Таблица кодов расширена passthrough-кодами знаний спеки 003 (`model_not_found`, `db_incompatible`, `embed_failed`, `walk_failed` → 503, тексты из `ERROR_MESSAGES` knowledge) и `internal_error` (500).
+- Env `DEEPSEEK_MODEL` (необязательный, дефолт `deepseek-chat`) — перекрываемая модель без правок кода (уточнение FR-5).
+- Diff-блок в промпте: лимит строк 200 (из mcpClient DEFAULT_DIFF_MAX_LINES) + символьный бюджет ≤ 4000 симв. (уточнение NFR-2).
+- `changedFilesCount` = длина `changedFiles` из `get_context` (≤ 200 при `truncated`); вопросы о **закоммиченных** изменениях ветки относительно main — не покрыты (get_context/git_diff смотрят рабочее дерево vs HEAD; в MVP — вне объёма, ок для «изменения ветки» через git_diff base/head — backlog).
+- Порядок availability-проверок: `ensureLlm` раньше `checkIndex` — при одновременном отсутствии и ключа, и индекса показывается «ключ не задан» (принято, зафиксировано).
+- Wiring `deps.ts`: `buildDefaultBackendDeps` + `import.meta.hot.dispose` → gateway.close() (HMR — нет осиротевших процессов); e2e-хелпер gateway закрывается в finally.
+- UI-фраза для `deepseek_key_missing` намеренно не содержит литерала `DEEPSEEK_API_KEY` (чистота бандла AC-10; backend-фраза имя сохраняет).
+
 ## Тест-план
 
 Инструменты: vitest (unit + integration/e2e), `@vue/test-utils` для компонентов. Ручные проверки QA — на реальном окружении (Ollama + ключ DeepSeek) по AC.
