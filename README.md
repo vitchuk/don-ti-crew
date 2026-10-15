@@ -1,6 +1,6 @@
 # don-ti-crew
 
-Приложение для **совместных тренировок родителя и ребёнка** на одном экране с Tabata-таймером, плюс собственная **AI-инфраструктура проекта**: «Помощник по проекту» (`/help`), MCP-сервер проектного контекста, RAG-поиск по документации и коду, автоматический AI Code Review пулл-реквестов.
+Приложение для **совместных тренировок родителя и ребёнка** на одном экране с Tabata-таймером, плюс собственная **AI-инфраструктура проекта**: «Помощник по проекту» (`/help`), MCP-сервер проектного контекста, RAG-поиск по документации и коду, автоматический AI Code Review для pull request.
 
 Проект ведётся по **SDD** (Specification Driven Development, см. `AGENTS.md`): требования фиксируются спецификациями, решения — ADR.
 
@@ -12,16 +12,32 @@
 | Принятые решения | [docs/adr/](docs/adr/) |
 | Термины | [GLOSSARY.md](GLOSSARY.md) |
 | Спецификации | [specs/](specs/) |
+| CI / runner / секреты | [docs/dev/](docs/dev/) |
 
 ## Структура
 
 ```
-apps/        клиент-тренировки (PWA), Помощник по проекту
-services/    knowledge (RAG), mcp-server, review
-specs/       SDD-спецификации: spec.md + plan.md + tasks.md
-docs/        архитектура и ADR
+apps/client/       PWA: Tabata-таймер (Vue 3 + Vite + Dexie)
+apps/assistant/    «Помощник по проекту»: Vue UI + Hono backend (pnpm assistant:dev)
+services/knowledge/   RAG: indexer CLI + query() (qwen3-embedding через Ollama, sqlite-vec)
+services/mcp-server/  MCP: 7 инструментов проектного контекста (stdio)
+services/review/      AI Code Review CLI (MCP-клиент + DeepSeek)
 ```
 
-## Разработка
+## Разработка (pnpm workspace, TypeScript, Node 22 LTS)
 
-pnpm-workspace, TypeScript. Команды появятся по мере реализации фаз (см. [specs](specs/)).
+```sh
+pnpm install            # после клонирования
+pnpm lint               # eslint
+pnpm test               # все пакеты (vitest)
+pnpm build              # все пакеты
+
+pnpm dev                # клиент (или pnpm --filter @don-ti/client dev)
+pnpm assistant:dev      # «Помощник по проекту» — UI + API одним dev-сервером
+
+pnpm rag:index          # индексация репо (нужен Ollama + модель qwen3-embedding)
+pnpm rag:query "..."    # отладочный поиск по индексу
+pnpm review:run --base <ref> --head <ref> --out report.md   # локальный AI-ревью (нужен ключ DEEPSEEK_API_KEY)
+```
+
+Переменные окружения (см. `apps/assistant/.env.example`, `docs/dev/`): `DEEPSEEK_API_KEY`, `ASSISTANT_LLM`, `KNOWLEDGE_DB`, `OLLAMA_BASE_URL`.
