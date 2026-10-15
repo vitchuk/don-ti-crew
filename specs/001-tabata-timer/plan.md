@@ -65,12 +65,13 @@ export interface MachineState {
   remainedMs: number;       // вычисляется: max(0, phaseEndsAt - now)
   completedRounds: number;  // фактически завершённые раунды
   pausedAt: number | null;  // метка, если стоит пауза
+  protocol: TabataProtocol; // ссылка на протокол сессии (длина фаз нужна tick/pause/resume)
 }
 export function createMachine(p: TabataProtocol, now: () => number): MachineState;
 export function tick(s: MachineState, now: number): MachineState;        // чистый; мутации через замену
 export function pause(s: MachineState, now: number): MachineState;
 export function resume(s: MachineState, now: number): MachineState;      // сдвигает phaseEndsAt на длительность паузы
-export function reset(): MachineState;
+export function reset(p: TabataProtocol, now: number): MachineState;
 export function hasFinished(s: MachineState): boolean; // s.phase === 'done'
 
 // db/db.ts (Dexie, IndexedDB)
@@ -136,6 +137,16 @@ export const PRESETS: WorkoutTemplate[] = [
 - Пресеты **не** пишутся в Dexie (неизменяемы, живут в `presets.ts`); Dexie хранит только пользовательские шаблоны (`isPreset: false`).
 - В `TrainingSession` хранятся `protocolSnapshot` и `templateName` — снимки на момент запуска: история стабильна при переименовании/удалении шаблона (AC-7). `templateId` необязателен (пресеты/удалённые шаблоны).
 - Статус `in_progress` существует в enum по модели архитектуры, но запись в историю создаётся уже с финальным статусом (`completed|abandoned`) — persisted `in_progress`-сессии в MVP нет; активная сессия живёт только в памяти (восстановление после закрытия вкладки — вне объёма).
+
+## Отклонения, согласованные при реализации (rev. 2026-10-15)
+
+- `MachineState` содержит поле `protocol: TabataProtocol`; `reset(p, now)` принимает протокол и метку времени — иначе FSM не может вычислять длительности фаз и «вернуться к началу протокола».
+- `completedRounds` инкрементируется на переходе работа → отдых (IC5 semantics: «прервано на 3-м раунде (завершён 3-й)»).
+- Редактирование пользовательского шаблона = переименование; поля протокола в режиме редактирования задизейблены (`update`-операции в контракте нет — протокол неизменяем).
+- Роутинг экранов — состояние `ref` в `App.vue` (без vue-router).
+- Дополнительно к списку зависимостей plan.md (все оправданы ревью): runtime `workbox-window` (импортируется `virtual:pwa-register`), dev `vue-tsc` (type-check build), dev `jsdom` (vitest env для компонент-тестов).
+- Прерывание: `pagehide` → сохранение `abandoned`; скрытие вкладки сессию не завершает (см. spec FR-4).
+- `pnpm-workspace.yaml` содержит `allowBuilds: esbuild` (pnpm 12 блокирует postinstall по умолчанию).
 
 ## Тест-план
 
