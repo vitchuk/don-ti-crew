@@ -18,9 +18,12 @@ export class KnowledgeError extends Error {
 
 export const NOT_INDEXED_MESSAGE = 'Индекс знаний не построен — запустите `pnpm rag:index`.'
 export const OLLAMA_UNAVAILABLE_MESSAGE = 'Ollama недоступна — запустите её на http://localhost:11434.'
-export const MODEL_NOT_FOUND_MESSAGE = 'Модель qwen3-embedding не найдена — запустите `ollama pull qwen3-embedding`.'
+export function modelNotFoundMessage(model: string): string {
+  return `Модель ${model} не найдена — запустите \`ollama pull ${model}\` или задайте KNOWLEDGE_EMBED_MODEL с фактическим тегом.`
+}
+export const MODEL_NOT_FOUND_MESSAGE = modelNotFoundMessage('qwen3-embedding')
 export const DB_INCOMPATIBLE_MESSAGE = 'Размерность эмбеддингов не совпадает с индексом — запустите `pnpm rag:index --force`.'
-export const EMBED_FAILED_MESSAGE = 'Сервис эмбеддингов вернул ошибку — проверьте Ollama и модель qwen3-embedding.'
+export const EMBED_FAILED_MESSAGE = 'Сервис эмбеддингов вернул ошибку — проверьте Ollama и выбранную модель (KNOWLEDGE_EMBED_MODEL).'
 export const WALK_FAILED_MESSAGE = 'Не удалось обойти источники индексации — проверьте доступность файлов репозитория.'
 
 export const ERROR_MESSAGES: Record<KnowledgeErrorCode, string> = {

@@ -16,6 +16,7 @@ import {
 } from './db.js'
 import { chunkCode, chunkMarkdown } from './chunker.js'
 import { KnowledgeError, WALK_FAILED_MESSAGE } from './errors.js'
+import { repoRoot as detectRepoRoot } from './repoRoot.js'
 import { collectFiles } from './walk.js'
 import type { Chunk, FileType, IndexSummary, IndexerOptions } from './types.js'
 import type { SourceFile } from './walk.js'
@@ -30,7 +31,7 @@ interface FileMeta {
 const DIMENSION_PROBE_TEXT = 'knowledge dimension probe'
 
 export async function index(options: IndexerOptions): Promise<IndexSummary> {
-  const repoRoot = options.repoRoot ?? process.cwd()
+  const repoRoot = options.repoRoot ?? detectRepoRoot()
   const dbPath = resolveDbPath(options.dbPath)
   let sources: SourceFile[]
   try {

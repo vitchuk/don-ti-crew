@@ -3,13 +3,14 @@ import process from 'node:process'
 import type { Embedder } from './types.js'
 import {
   EMBED_FAILED_MESSAGE,
-  MODEL_NOT_FOUND_MESSAGE,
-  OLLAMA_UNAVAILABLE_MESSAGE,
   KnowledgeError,
+  OLLAMA_UNAVAILABLE_MESSAGE,
+  modelNotFoundMessage,
 } from './errors.js'
 
 export const DEFAULT_OLLAMA_BASE_URL = 'http://localhost:11434'
 export const EMBED_MODEL = 'qwen3-embedding'
+export const EMBED_MODEL_ENV = 'KNOWLEDGE_EMBED_MODEL'
 export const EMBED_BATCH_SIZE = 32
 export const FAKE_EMBEDDER_DIMENSION = 8
 
@@ -86,7 +87,7 @@ export interface OllamaEmbedResponse {
 
 export function createOllamaEmbedder(options: OllamaEmbedderOptions = {}): Embedder {
   const baseUrl = (options.baseUrl ?? process.env['OLLAMA_BASE_URL'] ?? DEFAULT_OLLAMA_BASE_URL).replace(/\/+$/, '')
-  const model = options.model ?? EMBED_MODEL
+  const model = options.model ?? process.env[EMBED_MODEL_ENV] ?? EMBED_MODEL
   const batchSize = Math.max(1, options.batchSize ?? EMBED_BATCH_SIZE)
   return {
     async embed(texts: string[]): Promise<number[][]> {
@@ -118,7 +119,7 @@ async function requestEmbeddings(baseUrl: string, model: string, batch: string[]
   if (!response.ok) {
     const body = await response.text().catch(() => '')
     if (response.status === 404 || /not found/i.test(body)) {
-      throw new KnowledgeError('MODEL_NOT_FOUND', MODEL_NOT_FOUND_MESSAGE)
+      throw new KnowledgeError('MODEL_NOT_FOUND', modelNotFoundMessage(model))
     }
     throw new KnowledgeError('EMBED_FAILED', EMBED_FAILED_MESSAGE)
   }

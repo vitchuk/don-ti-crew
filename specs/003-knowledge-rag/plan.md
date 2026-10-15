@@ -138,6 +138,9 @@ ORDER BY m.distance;
 - Гранулярность выборки: пер-файловые HTTP-батчи — потенциальное констан时间去 для больших репо (NFR-1 имеет запас ~10 мин; backlog — аккумулирование батчей между транзакциями).
 - `total` в `SearchResponse` = `results.length`.
 - Подсчёт dimension-чистый: сравнение `vector.length` с `user_version` до MATCH (fallback regex остался).
+- **Корень репозитория и путь БД (исправление после первого живого прогона):** CLI при запуске через pnpm имеет cwd = `services/knowledge`; поэтому `index()` по умолчанию берёт корень репо (поиск `.git` вверх), а `resolveDbPath` резолвит относительный `KNOWLEDGE_DB`/`.data/knowledge.db` от корня репо, не от cwd. Абсолютные пути и `:memory:` — как есть.
+- **Env `KNOWLEDGE_EMBED_MODEL`:** имя модели эмбеддингов настраивается (дефолт `qwen3-embedding`); тексты MODEL_NOT_FOUND/EMBED_FAILED используют фактическое имя. Текст `MODEL_NOT_FOUND` пропагируется через mcp-server (`translateKnowledgeError`/`translateDocsError` сохраняют динамическое имя для kind `model-not-found`, остальные kinds нормализуются к каноническому тексту).
+- **Загрузка `.env`:** knowledge-CLI читает `.env` из корня репозитория (простейший парсер, без зависимостей); уже заданные переменные окружения приоритетнее.
 
 ## Тест-план
 

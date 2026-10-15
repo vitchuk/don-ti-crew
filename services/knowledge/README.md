@@ -2,7 +2,8 @@
 
 Библиотека RAG-индексации репозитория и сервис поиска по индексу знаний
 (спека 003). Стек: Ollama `qwen3-embedding` + `better-sqlite3` + `sqlite-vec`
-(ADR-0005).
+(ADR-0005). Имя модели переопределяется env `KNOWLEDGE_EMBED_MODEL` (например,
+`qwen3-embedding:0.6b`, если модель установлена с тегом); базовый URL — `OLLAMA_BASE_URL`.
 
 ## Публичный API
 
@@ -10,8 +11,8 @@
 import { index, query, KnowledgeError, FakeEmbedder } from '@don-ti/knowledge'
 
 const summary = await index({
-  repoRoot: process.cwd(),
-  dbPath: process.env.KNOWLEDGE_DB,       // default .data/knowledge.db
+  repoRoot: process.env.REPO_ROOT,        // default — корень репо (поиск .git вверх)
+  dbPath: process.env.KNOWLEDGE_DB,       // default .data/knowledge.db в корне репо
   embedder: createOllamaEmbedder(),       // или своя реализация Embedder
   force: false,                           // --force: полная переиндексация
 })
@@ -35,7 +36,8 @@ pnpm rag:query "<текст>" [--k 5] [--type docs]
 ```
 
 Итоги индексации и прогресс выводятся в stderr; ошибка — одно предложение,
-exit-код 1.
+exit-код 1. CLI читает `.env` из корня репо, а относительный путь БД и обход
+репозитория считаются от корня (не от каталога пакета).
 
 ## Ошибки
 
@@ -45,9 +47,9 @@ exit-код 1.
 |----------------------|--------------------------------------------------------------------------------------|
 | `NOT_INDEXED`        | «Индекс знаний не построен — запустите `pnpm rag:index`.»                            |
 | `OLLAMA_UNAVAILABLE` | «Ollama недоступна — запустите её на http://localhost:11434.»                        |
-| `MODEL_NOT_FOUND`    | «Модель qwen3-embedding не найдена — запустите `ollama pull qwen3-embedding`.»       |
+| `MODEL_NOT_FOUND`    | «Модель <имя> не найдена — запустите `ollama pull <имя>` или задайте KNOWLEDGE_EMBED_MODEL с фактическим тегом.» |
 | `DB_INCOMPATIBLE`    | «Размерность эмбеддингов не совпадает с индексом — запустите `pnpm rag:index --force`.» |
-| `EMBED_FAILED`       | «Сервис эмбеддингов вернул ошибку — проверьте Ollama и модель qwen3-embedding.»      |
+| `EMBED_FAILED`       | «Сервис эмбеддингов вернул ошибку — проверьте Ollama и выбранную модель (KNOWLEDGE_EMBED_MODEL).»      |
 | `WALK_FAILED`        | «Не удалось обойти источники индексации — проверьте доступность файлов репозитория.» |
 
 ## Тесты без Ollama
@@ -58,7 +60,8 @@ FakeEmbedder.
 
 ## Чек-лист ручной проверки с Ollama (self-hosted, ADR-0006)
 
-1. `ollama serve` (порт 11434) и `ollama pull qwen3-embedding`.
+1. `ollama serve` (порт 11434) и `ollama pull qwen3-embedding` (либо укажите
+   тег установленной модели в `.env`: `KNOWLEDGE_EMBED_MODEL=qwen3-embedding:0.6b`).
 2. `pnpm install && pnpm --filter @don-ti/knowledge build`.
 3. `pnpm rag:index` — файловая БД `.data/knowledge.db`; stderr-итоги: файлы,
    пересчитано, фрагменты, размерность.

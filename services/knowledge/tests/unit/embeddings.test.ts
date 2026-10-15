@@ -34,6 +34,7 @@ function stubFetch(responder: (call: FetchCall, index: number) => Response | Pro
 afterEach(() => {
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
+  vi.unstubAllEnvs()
 })
 
 describe('FakeEmbedder', () => {
@@ -116,6 +117,23 @@ describe('createOllamaEmbedder', () => {
     expect((error as KnowledgeError).code).toBe('MODEL_NOT_FOUND')
     expect((error as KnowledgeError).message).toBe(ERROR_MESSAGES.MODEL_NOT_FOUND)
     expect((error as KnowledgeError).message).toContain('ollama pull qwen3-embedding')
+  })
+
+  it('KNOWLEDGE_EMBED_MODEL overrides the default model name', async () => {
+    vi.stubEnv('KNOWLEDGE_EMBED_MODEL', 'qwen3-embedding:0.6b')
+    const { calls } = stubFetch(() => Response.json({ embeddings: [[1, 0, 0, 0]] }))
+    const embedder = createOllamaEmbedder()
+    await embedder.embed(['x'])
+    expect(calls[0]?.body).toEqual({ model: 'qwen3-embedding:0.6b', input: ['x'] })
+  })
+
+  it('404 with a configured model reports that exact model name', async () => {
+    vi.stubEnv('KNOWLEDGE_EMBED_MODEL', 'qwen3-embedding:0.6b')
+    stubFetch(() => new Response(JSON.stringify({ error: 'model not found' }), { status: 404 }))
+    const embedder = createOllamaEmbedder()
+    const error = await embedder.embed(['x']).catch((e: unknown) => e)
+    expect((error as KnowledgeError).code).toBe('MODEL_NOT_FOUND')
+    expect((error as KnowledgeError).message).toContain('qwen3-embedding:0.6b')
   })
 
   it('other HTTP failures → EMBED_FAILED', async () => {

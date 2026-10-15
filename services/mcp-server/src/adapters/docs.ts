@@ -76,7 +76,8 @@ export function knowledgeDocSearch(options: {
 
 export function translateKnowledgeError(error: unknown): Error {
   if (error instanceof KnowledgeError) {
-    return new DocsError(toDocsErrorKind(error.code), MESSAGES[toDocsErrorKind(error.code)])
+    const kind = toDocsErrorKind(error.code)
+    return new DocsError(kind, error.message.length > 0 ? error.message : MESSAGES[kind])
   }
   return error instanceof Error ? error : new Error(String(error))
 }
@@ -147,6 +148,9 @@ function normalizeResult(result: SearchProjectDocsResult): SearchProjectDocsResu
 
 function translateDocsError(error: unknown): Error {
   if (error instanceof DocsError) {
+    if (error.kind === 'model-not-found' && error.message.length > 0) {
+      return new DocsError(error.kind, error.message)
+    }
     return new DocsError(error.kind, MESSAGES[error.kind])
   }
   const translated = translateKnowledgeError(error)

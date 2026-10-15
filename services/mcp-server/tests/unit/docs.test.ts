@@ -159,6 +159,20 @@ describe('knowledgeDocSearch (real @don-ti/knowledge integration)', () => {
     expect((model as DocsError).message).toBe(MODEL_NOT_FOUND)
   })
 
+  it('forwards the configured embedding model name through the docs error', async () => {
+    await knowledgeIndex({ repoRoot: repo, dbPath, embedder: new FakeEmbedder() })
+    const custom: { embed: (texts: string[]) => Promise<number[][]> } = {
+      embed: async (texts: string[]): Promise<number[][]> => {
+        void texts
+        throw new KnowledgeError('MODEL_NOT_FOUND', 'Модель qwen3-embedding:0.6b не найдена — проверьте тег.')
+      },
+    }
+    const search = makeSearchProjectDocs(knowledgeDocSearch({ dbPath, embedder: custom }))
+    const error = await search({ query: 'тест' }).catch((e: unknown) => e)
+    expect((error as DocsError).kind).toBe('model-not-found')
+    expect((error as DocsError).message).toContain('qwen3-embedding:0.6b')
+  })
+
   function throwingEmbedder(code: 'DB_INCOMPATIBLE' | 'OLLAMA_UNAVAILABLE' | 'MODEL_NOT_FOUND'): {
     embed: (texts: string[]) => Promise<number[][]>
   } {

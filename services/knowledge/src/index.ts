@@ -7,6 +7,7 @@ export {
   createOllamaEmbedder,
   DEFAULT_OLLAMA_BASE_URL,
   EMBED_MODEL,
+  EMBED_MODEL_ENV,
   EMBED_BATCH_SIZE,
   FAKE_EMBEDDER_DIMENSION,
   type OllamaEmbedderOptions,
@@ -17,11 +18,13 @@ export {
   NOT_INDEXED_MESSAGE,
   OLLAMA_UNAVAILABLE_MESSAGE,
   MODEL_NOT_FOUND_MESSAGE,
+  modelNotFoundMessage,
   DB_INCOMPATIBLE_MESSAGE,
   EMBED_FAILED_MESSAGE,
   WALK_FAILED_MESSAGE,
   type KnowledgeErrorCode,
 } from './errors.js'
+export { repoRoot, findRepoRoot } from './repoRoot.js'
 export {
   DEFAULT_DB_PATH,
   openDatabase,

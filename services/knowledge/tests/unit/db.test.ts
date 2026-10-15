@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { mkdirSync, mkdtempSync, rmSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { openDatabase, tableExists, ensureSchema, existingFiles, searchChunks, readStoredDimension, createSql, toVector, DEFAULT_DB_PATH } from '../../src/db.js'
+import { openDatabase, tableExists, ensureSchema, existingFiles, searchChunks, readStoredDimension, createSql, toVector, resolveDbPath, DEFAULT_DB_PATH } from '../../src/db.js'
+import { repoRoot } from '../../src/repoRoot.js'
 import { KnowledgeError } from '../../src/errors.js'
 
 let dir: string
@@ -13,6 +14,17 @@ beforeEach(() => {
 
 afterEach(() => {
   rmSync(dir, { recursive: true, force: true })
+})
+
+describe('resolveDbPath', () => {
+  it('resolves a relative path against the repository root (not the package cwd)', () => {
+    expect(resolveDbPath('.data/knowledge.db')).toBe(join(repoRoot(), '.data', 'knowledge.db'))
+  })
+
+  it('keeps :memory: and absolute paths as-is', () => {
+    expect(resolveDbPath(':memory:')).toBe(':memory:')
+    expect(resolveDbPath(join(dir, 'custom.db'))).toBe(join(dir, 'custom.db'))
+  })
 })
 
 describe('ensureSchema on :memory:', () => {

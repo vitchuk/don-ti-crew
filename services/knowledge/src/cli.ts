@@ -1,5 +1,6 @@
 import process from 'node:process'
 import { FILE_TYPES, DEFAULT_K } from './constants.js'
+import { loadKnowledgeEnv } from './envFile.js'
 import { index } from './indexer.js'
 import { query } from './query.js'
 import { createOllamaEmbedder, FakeEmbedder, type OllamaEmbedderOptions } from './embeddings.js'
@@ -150,6 +151,7 @@ function defaultEmbedder(): Embedder {
 }
 
 export async function main(argv: readonly string[]): Promise<number> {
+  loadKnowledgeEnv()
   const io: CliIo = {
     stderr: (text) => { console.error(text) },
     stdout: (text) => { console.log(text) },

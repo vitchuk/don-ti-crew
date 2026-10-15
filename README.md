@@ -35,9 +35,10 @@ pnpm build              # все пакеты
 pnpm dev                # клиент (или pnpm --filter @don-ti/client dev)
 pnpm assistant:dev      # «Помощник по проекту» — UI + API одним dev-сервером
 
-pnpm rag:index          # индексация репо (нужен Ollama + модель qwen3-embedding)
+pnpm rag:index          # индексация репо (нужен Ollama; модель по умолчанию qwen3-embedding)
 pnpm rag:query "..."    # отладочный поиск по индексу
 pnpm review:run --base <ref> --head <ref> --out report.md   # локальный AI-ревью (нужен ключ DEEPSEEK_API_KEY)
 ```
 
-Переменные окружения (см. `apps/assistant/.env.example`, `docs/dev/`): `DEEPSEEK_API_KEY`, `ASSISTANT_LLM`, `KNOWLEDGE_DB`, `OLLAMA_BASE_URL`.
+Переменные окружения: скопируйте [`.env.example`](.env.example) в `.env` (корень репо).
+Ключевые: `DEEPSEEK_API_KEY`, `ASSISTANT_LLM`, `KNOWLEDGE_EMBED_MODEL` (тег модели эмбеддингов, например `qwen3-embedding:0.6b`), `KNOWLEDGE_DB`, `OLLAMA_BASE_URL`; см. также `apps/assistant/.env.example`, `docs/dev/`.

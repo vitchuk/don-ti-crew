@@ -1,8 +1,9 @@
 import Database from 'better-sqlite3'
 import * as sqliteVec from 'sqlite-vec'
-import { resolve } from 'node:path'
+import { isAbsolute, resolve } from 'node:path'
 import process from 'node:process'
 import { DB_INCOMPATIBLE_MESSAGE, KnowledgeError } from './errors.js'
+import { repoRoot } from './repoRoot.js'
 import type { Chunk } from './types.js'
 
 export const DEFAULT_DB_PATH = '.data/knowledge.db'
@@ -32,7 +33,10 @@ export interface SchemaResult {
 
 export function resolveDbPath(dbPath?: string): string {
   const raw = dbPath ?? process.env['KNOWLEDGE_DB'] ?? DEFAULT_DB_PATH
-  return raw === ':memory:' ? raw : resolve(raw)
+  if (raw === ':memory:') {
+    return raw
+  }
+  return isAbsolute(raw) ? raw : resolve(repoRoot(), raw)
 }
 
 export function openDatabase(dbPath: string): Database.Database {
