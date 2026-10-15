@@ -1,0 +1,34 @@
+name: Rag Index
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  index:
+    name: Индексация (self-hosted, инкремент)
+    runs-on: self-hosted
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Enable pnpm (corepack)
+        run: corepack enable
+      - name: Node 22 LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Guard KNOWLEDGE_DB
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace("$env:KNOWLEDGE_DB")) {
+            Write-Host "KNOWLEDGE_DB не задан в окружении раннера — задайте стабильный путь вне workspace (docs/dev/self-hosted-runner.md, раздел «Окружение»), иначе инкремент индекса не переживёт чекауты."
+            exit 1
+          }
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Build (dist сервисов)
+        run: pnpm build
+      - name: RAG-индексация
+        run: pnpm rag:index

@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import { createLlm, ensureLlmAvailable, type LlmMessage } from '../backend/llm'
-import { AppError } from '../backend/errors'
 import type { FetchLike } from '../backend/llm'
 import type { LlmConfig } from '../backend/llmConfig'
 

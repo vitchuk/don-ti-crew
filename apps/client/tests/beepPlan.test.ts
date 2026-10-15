@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { beepsForTransition } from '../src/domain/beepPlan'
 import { createMachine, hasFinished, tick, type MachineState } from '../src/domain/phaseMachine'
-import { DEFAULT_PROTOCOL, type TabataProtocol } from '../src/domain/protocol'
+import { type TabataProtocol } from '../src/domain/protocol'
 
 const FAST: TabataProtocol = {
   prepareSec: 1,

@@ -68,7 +68,7 @@ describe('FakeEmbedder', () => {
 
 describe('createOllamaEmbedder', () => {
   it('sends batched POST /api/embed with model and input; returns embeddings of the response dimension', async () => {
-    const { calls } = stubFetch((call, index) => {
+    const { calls } = stubFetch((call) => {
       const input = (call.body as { input: string[] }).input
       return Response.json({ embeddings: input.map((text: string) => [text.length, 1, -1, 0]) })
     })

@@ -1,0 +1,82 @@
+name: AI Review
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+permissions:
+  contents: read
+  pull-requests: write
+concurrency:
+  group: ai-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  review:
+    name: AI Code Review (self-hosted, non-blocking)
+    runs-on: self-hosted
+    timeout-minutes: 15
+    steps:
+      - name: Checkout (полная история для merge-base)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Enable pnpm (corepack)
+        run: corepack enable
+      - name: Node 22 LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Guard KNOWLEDGE_DB
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace("$env:KNOWLEDGE_DB")) {
+            Write-Host "KNOWLEDGE_DB не задан в окружении раннера — задайте стабильный путь вне workspace (docs/dev/self-hosted-runner.md, раздел «Окружение»), иначе инкремент индекса не переживёт чекауты."
+            exit 1
+          }
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Build (dist сервисов)
+        run: pnpm build
+      - name: Актуализировать индекс знаний по PR
+        run: pnpm rag:index
+      - name: Review CLI
+        id: review
+        continue-on-error: true
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: pnpm review:run --base "${{ github.event.pull_request.base.sha }}" --head "${{ github.event.pull_request.head.sha }}" --out "$env:RUNNER_TEMP/ai-review.md"
+      - name: Публикация комментария (upsert)
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          REVIEW_FILE: ${{ runner.temp }}/ai-review.md
+          REVIEW_OK: ${{ steps.review.outcome == 'success' }}
+        with:
+          script: |
+            const fs = require('node:fs')
+            const anchor = '<!-- ai-review-comment -->'
+            let body = ''
+            if (process.env.REVIEW_OK === 'true') {
+              try {
+                body = fs.readFileSync(process.env.REVIEW_FILE ?? '', 'utf8')
+              } catch (readError) {
+                body = ''
+              }
+            }
+            if (body.trim() === '') {
+              body = '## ⚠️ AI review не выполнен (сбой шага) — смотри логи job `review`. Merge не блокируется (ADR-0007).'
+            }
+            body = `${anchor}\n\n${body}`
+            const owner = context.repo.owner
+            const repo = context.repo.repo
+            const issue = context.issue.number
+            const comments = await github.rest.issues.listComments({ owner, repo, issue_number: issue, per_page: 100 })
+            const existing = comments.data.find(c => typeof c.body === 'string' && c.body.includes(anchor))
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body })
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number: issue, body })
+            }
+            try {
+              await github.rest.issues.addLabels({ owner, repo, issue_number: issue, labels: ['ai-review'] })
+            } catch (labelError) {
+              core.warning(`Не удалось проставить label ai-review: ${labelError instanceof Error ? labelError.message : String(labelError)}`)
+            }

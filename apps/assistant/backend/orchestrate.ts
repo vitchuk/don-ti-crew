@@ -2,7 +2,7 @@ import { wantsDiff } from './changeDetector.js'
 import { buildPrompt, DIFF_MAX_LINES, type PromptDiff } from './prompt.js'
 import type { KnowledgeQuery } from './knowledge.js'
 import type { LlmCall } from './llm.js'
-import type { McpContextResult, McpDiffResult, McpGateway } from './mcpClient.js'
+import type { McpContextResult, McpDiffResult } from './mcpClient.js'
 import type { AskAnswer, GitContext } from '../src/types.js'
 
 /**

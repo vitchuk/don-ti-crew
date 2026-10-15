@@ -3,12 +3,10 @@ import { z } from 'zod'
 import {
   changedFiles,
   getCurrentBranch,
-  getLastCommit,
   gitDiff,
   gitStatus,
-  type GitDiffResult,
 } from '../adapters/git.js'
-import { listFiles, type ListFilesResult } from '../adapters/files.js'
+import { listFiles } from '../adapters/files.js'
 import {
   defaultDocSearch,
   makeSearchProjectDocs,

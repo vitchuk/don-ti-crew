@@ -1,0 +1,119 @@
+import { describe, expect, it } from 'vitest'
+import {
+  collectReviewData,
+  isExcludedFile,
+  validateChangedFilesPayload,
+  validateDiffPayload,
+  RefError,
+  CollectError,
+  MAX_DIFF_CHARS,
+  DIFF_TRUNCATION_MARK,
+} from '../../src/collect'
+import { stubSession, wrap, DIFF_OK, FILES_OK } from '../fixtures/stubSession'
+
+describe('collectReviewData (мок MCP-сессии)', () => {
+  it('git_diff получает base/head/maxLines=500, changed_files получает base/head', async () => {
+    const single = stubSession((name) => {
+      if (name === 'git_diff') {
+        return DIFF_OK
+      }
+      return FILES_OK
+    })
+    await collectReviewData(single, 'abc', 'def')
+    expect(single.calls.map(call => call.name)).toEqual(['git_diff', 'changed_files'])
+    expect(single.calls[0]?.args).toEqual({ base: 'abc', head: 'def', maxLines: 500 })
+    expect(single.calls[1]?.args).toEqual({ base: 'abc', head: 'def' })
+  })
+
+  it('lock-файлы и бинарные файлы отфильтрованы из списка', async () => {
+    const session = stubSession((name) => {
+      if (name === 'git_diff') {
+        return DIFF_OK
+      }
+      return {
+        files: [
+          { file: 'apps/assistant/backend/a.ts', state: 'modified' },
+          { file: 'pnpm-lock.yaml', state: 'modified' },
+          { file: 'docs/pic/logo.png', state: 'added' },
+          { file: 'services/review/dist/cli.js', state: 'deleted' },
+          { file: 'infra/tls/ca.pem', state: 'modified' },
+        ],
+        truncated: false,
+      }
+    })
+    const data = await collectReviewData(session, 'a', 'b')
+    expect(data.files.map(file => file.file)).toEqual([
+      'apps/assistant/backend/a.ts',
+      'services/review/dist/cli.js',
+      'infra/tls/ca.pem',
+    ])
+  })
+
+  it('isError «недопустимая git-ссылка» → RefError', async () => {
+    const session = stubSession(() => ({ error: 'недопустимая git-ссылка: zz' }))
+    await expect(collectReviewData(session, 'zz', 'HEAD')).rejects.toThrow(RefError)
+  })
+
+  it('isError с другой ошибкой → CollectError', async () => {
+    const session = stubSession(() => ({ error: 'ветки не имеют общих предков' }))
+    await expect(collectReviewData(session, 'a', 'b')).rejects.toThrow(CollectError)
+  })
+
+  it('не-JSON payload → CollectError', async () => {
+    const session = stubSession(() => ({ raw: { content: [{ type: 'text', text: 'oops' }] } }))
+    await expect(collectReviewData(session, 'a', 'b')).rejects.toThrow('не-JSON')
+  })
+})
+
+describe('усечение дифа', () => {
+  it('диф больше 150 КБ обрезан с пометкой', async () => {
+    const longDiff = 'x'.repeat(MAX_DIFF_CHARS + 1000)
+    const session = stubSession((name) => {
+      if (name === 'git_diff') {
+        return { diff: longDiff, totalLines: 99999, truncated: true }
+      }
+      return FILES_OK
+    })
+    const data = await collectReviewData(session, 'a', 'b')
+    expect(data.diff.diff.length).toBe(MAX_DIFF_CHARS + DIFF_TRUNCATION_MARK.length)
+    expect(data.diff.diff).toContain('[diff усечён')
+  })
+})
+
+describe('валидация payload', () => {
+  it('validateDiffPayload отклоняет мусор', () => {
+    expect(() => validateDiffPayload({ diff: 1, totalLines: 0, truncated: false })).toThrow('некорректный')
+    expect(() => validateDiffPayload(wrap(DIFF_OK))).toThrow()
+    expect(validateDiffPayload(DIFF_OK).totalLines).toBe(5)
+  })
+
+  it('validateChangedFilesPayload пропускает известные статусы', () => {
+    const files = validateChangedFilesPayload({
+      files: [
+        { file: 'a.ts', state: 'modified' },
+        { file: 'b.ts', state: 'weird' },
+        { file: 'c.ts', state: 'renamed' },
+      ],
+    })
+    expect(files).toEqual([
+      { file: 'a.ts', state: 'modified' },
+      { file: 'c.ts', state: 'renamed' },
+    ])
+  })
+
+  it('validateChangedFilesPayload отклоняет мусор', () => {
+    expect(() => validateChangedFilesPayload({ files: 'nope' })).toThrow('некорректный')
+  })
+})
+
+describe('isExcludedFile', () => {
+  it('locks и бинарные исключены', () => {
+    expect(isExcludedFile('pnpm-lock.yaml')).toBe(true)
+    expect(isExcludedFile('packages/x/yarn.lock')).toBe(true)
+    expect(isExcludedFile('docs/img/logo.PNG')).toBe(true)
+    expect(isExcludedFile('a/SQLite.db')).toBe(true)
+    expect(isExcludedFile('src/llm.ts')).toBe(false)
+    expect(isExcludedFile('README.md')).toBe(false)
+    expect(isExcludedFile('noext')).toBe(false)
+  })
+})

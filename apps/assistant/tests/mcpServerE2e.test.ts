@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { existsSync } from 'node:fs'
-import { mcpServerPath, repoRoot, knowledgeDbPath } from '../backend/paths'
+import { mcpServerPath, repoRoot } from '../backend/paths'
 import { McpGateway, createStdioConnector, DEFAULT_DIFF_MAX_LINES } from '../backend/mcpClient'
 
 /**

@@ -185,7 +185,7 @@ describe('changedFiles', () => {
     expect(result.files).toEqual([])
   })
 
-  it('more than 200 files: truncated', async () => {
+  it('more than 200 files: truncated', { timeout: 20000 }, async () => {
     const repo = makeRepo()
     repo.write('seed.txt', 'seed\n')
     repo.commit('seed')

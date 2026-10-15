@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import { createKnowledgeQuery, knowledgeIndexPresent } from '../backend/knowledge'
 import { knowledgeErrorToAppError } from '../backend/errors'
 import { KnowledgeError, ERROR_MESSAGES } from '@don-ti/knowledge'
-import { AppError } from '../backend/errors'
 
 describe('knowledge-интеграция (T-5, API спеки 003)', () => {
   it('KnowledgeError NOT_INDEXED → 422 index_missing с инструкцией «запустите pnpm rag:index»', () => {
